@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.1 2010-01-06 05:19:47 nick Exp $
+##	$Id: telnetbbs.pl,v 1.2 2010-01-06 13:33:19 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -35,6 +35,7 @@ use threads::shared;
 my %opts    = &fetchOptions( );
 my $pidFile = "/var/run/telnetbbs.pid";
 my $EOL     = "\015\012";
+my $BBS_NAME = "Hell's Dominion BBS";
 
 ##
 ## Check that we are 'root' 
@@ -91,7 +92,7 @@ sub startNetServer
 {
 	my $hostConnection;
 	my $childPID;
-	my $port = $opts{'port'};
+	my $port = $opts{'port'} || 23;
 	my $node = 1;
 
 	my $server = IO::Socket::INET->new( 
@@ -124,7 +125,7 @@ sub startNetServer
 		##
 		$hostConnection->autoflush( 1 );
 
-		print $hostConnection "Welcome to Hell's Dominion BBS!" . $EOL;
+		print $hostConnection "Welcome to $BBS_NAME!" . $EOL;
 		print $hostConnection "Starting BBS on node $node...$EOL";
 
 		##
@@ -319,7 +320,7 @@ sub fetchOptions {
         &GetOptions(
                         "help|?"        => \$opts{'help'},
                         "man"           => \$opts{'man'},
-			"port:i"		=> \$opts{'port'},
+			"port:i"	=> \$opts{'port'},
                    ) || &pod2usage( );
         &pod2usage( ) if defined $opts{'help'};
         &pod2usage( { -verbose => 2, -input => \*DATA } ) if defined $opts{'man'};
@@ -331,15 +332,16 @@ __END__
 
 =head1 NAME
 
-masterbuild.pl - blurb
+telnetbbs.pl - A telnet server designed to launch a multi-node BBS.
 
 =head1 SYNOPSIS
 
-masterbuild.pl [options]
+telnetbbs.pl [options]
 
  Options:
         --help,?        Display the basic help menu
         --man,m         Display the detailed man page
+	--port,p	Port to listen on, default 23.
 
 =head1 DESCRIPTION
 
