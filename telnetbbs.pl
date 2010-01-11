@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.2 2010-01-06 13:33:19 nick Exp $
+##	$Id: telnetbbs.pl,v 1.3 2010-01-11 05:02:27 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -34,8 +34,21 @@ use threads::shared;
 ##
 my %opts    = &fetchOptions( );
 my $pidFile = "/var/run/telnetbbs.pid";
+my @nodes   = ( );
 my $EOL     = "\015\012";
+
+## 
+## These will be moved in to a config file
+##
+my $DISPLAY  = ":1018.0";
 my $BBS_NAME = "Hell's Dominion BBS";
+my $BBS_NODE = 0;
+my $DBCONF   = "/tmp/dosbox-__NODE__.conf";
+my $BBS_CMD  = "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
+my $LOG      = "/var/log/bbs.log";
+my $MAX_NODE = 6;
+my $DOSBOXT  = "dosbox.conf.template";
+my $BASE_PORT = 5000;
 
 ##
 ## Check that we are 'root' 
@@ -60,6 +73,12 @@ $SIG{CHLD} = 'IGNORE';
 local $SIG{HUP}  = $SIG{INT} = $SIG{TERM} = \&shutdown;
 
 ##
+## Open the Log
+##
+#open LOG, ">>$LOG";
+&logmsg( "Starting telnetbbs server" );
+
+##
 ## Start the network server
 ##
 my $netThread = threads->create( \&startNetServer );
@@ -79,7 +98,7 @@ while( 1 ) { sleep 1; }
 ###############################################################################
 ###############################################################################
 
-sub logmsg { print "$0 $$: @_ at ", scalar localtime, "\n" }
+sub logmsg { print "$0 $$ ", scalar localtime, ":@_\n" }
 
 ###############################################################################
 ## startNetServer( );
@@ -93,7 +112,6 @@ sub startNetServer
 	my $hostConnection;
 	my $childPID;
 	my $port = $opts{'port'} || 23;
-	my $node = 1;
 
 	my $server = IO::Socket::INET->new( 
 			LocalPort => $port,
@@ -111,6 +129,40 @@ sub startNetServer
         ##
 	REQUEST: while( $hostConnection = $server->accept( ) )
 	{
+		## 
+		## Find the next available node
+		##
+		my $node = 0;
+		foreach (1 .. $MAX_NODE)
+		{
+			next if ( $node );
+			if ( ! $nodes[$_] ) 
+			{
+				$node = $BBS_NODE = $_;
+				$nodes[$_]++;
+			}
+		}
+
+		##
+		## Create our dosbox config
+		##
+		open( DBT, "<$DOSBOXT" );
+			my @dbt = <DBT>;
+		close( DBT );
+		
+		my $bpn = $BASE_PORT + $BBS_NODE;
+		$DBCONF =~ s/__NODE__/$BBS_NODE/g;
+		open( DBC, ">$DBCONF" );
+		foreach( @dbt ) 
+		{
+			$_ =~ s/__NODE__/$BBS_NODE/g;
+			$_ =~ s/__LISTEN_PORT__/$bpn/g;
+			print DBC $_;
+		}
+		close( DBC );
+
+		&logmsg( "Connecting on node $BBS_NODE\n" );
+
 		my $kidpid;
 		my $line;
 
@@ -126,7 +178,15 @@ sub startNetServer
 		$hostConnection->autoflush( 1 );
 
 		print $hostConnection "Welcome to $BBS_NAME!" . $EOL;
-		print $hostConnection "Starting BBS on node $node...$EOL";
+
+		##
+		if ( ! $BBS_NODE ) 
+		{
+			print $hostConnection "No available nodes.  Try again later.".$EOL;
+			exit;
+		}
+
+		print $hostConnection "Starting BBS on node $BBS_NODE...$EOL";
 
 		##
 		## Launch BBS via dosbox
@@ -134,18 +194,24 @@ sub startNetServer
 		my $bbsPID = fork( );
 		if ( $bbsPID ) 
 		{
-			exec( "dosbox" );
+			my $cmd = $BBS_CMD . $DBCONF;
+			exec( $cmd );
 			exit;
 		}
-		sleep 10;
+
+		##
+		## We wait for dosbox to start and the BBS to start
+		## There really should be a better way to determine this
+		##
+		sleep 5;
 
 		##
 		## Create connection to BBS
 		##
 		my $bbs = IO::Socket::INET->new (
 				PeerAddr 	=> 'localhost',
-				Type	  => SOCK_STREAM,
-				PeerPort	=> 5000,
+				Type	 	=> SOCK_STREAM,
+				PeerPort	=> $bpn,
 				Proto		=> 'tcp',
 			) || die "Could not open BBS socket: $!\n";
 		$bbs->autoflush( 1 );
@@ -169,11 +235,13 @@ sub startNetServer
 				print $bbs $byte;
 			}
 		}
+
+		unlink( $DBCONF );
 	}
 	close( $hostConnection );
 	exit;
 
-	close( $server );
+#	close( $server );
 }
 
 ###############################################################################
@@ -189,9 +257,14 @@ sub shutdown
 {
 	my $signame = shift || 0;
 
-	print "$0: Shutdown (SIG$signame) received.\n"
+	&logmsg( "$0: Shutdown (SIG$signame) received.\n" )
 		if( $signame );
 	
+	##
+	## Close Log
+	##
+	close( LOG );
+
 	##	
 	## Remove the PID
 	##
