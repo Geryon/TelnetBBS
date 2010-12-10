@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.3 2010-01-11 05:02:27 nick Exp $
+##	$Id: telnetbbs.pl,v 1.4 2010-12-10 23:28:09 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -34,19 +34,18 @@ use threads::shared;
 ##
 my %opts    = &fetchOptions( );
 my $pidFile = "/var/run/telnetbbs.pid";
-my @nodes   = ( );
 my $EOL     = "\015\012";
 
 ## 
 ## These will be moved in to a config file
 ##
-my $DISPLAY  = ":1018.0";
+my $DISPLAY  = ":0.0";
 my $BBS_NAME = "Hell's Dominion BBS";
 my $BBS_NODE = 0;
 my $DBCONF   = "/tmp/dosbox-__NODE__.conf";
 my $BBS_CMD  = "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
 my $LOG      = "/var/log/bbs.log";
-my $MAX_NODE = 6;
+my $MAX_NODE = 1;
 my $DOSBOXT  = "dosbox.conf.template";
 my $BASE_PORT = 5000;
 
@@ -81,7 +80,8 @@ local $SIG{HUP}  = $SIG{INT} = $SIG{TERM} = \&shutdown;
 ##
 ## Start the network server
 ##
-my $netThread = threads->create( \&startNetServer );
+my $netThread = threads->create( \&startNetServer( ) );
+
 
 while( 1 ) { sleep 1; }
 
@@ -111,7 +111,8 @@ sub startNetServer
 {
 	my $hostConnection;
 	my $childPID;
-	my $port = $opts{'port'} || 23;
+	my $port  = $opts{'port'} || 23;
+	my @nodes = ( );
 
 	my $server = IO::Socket::INET->new( 
 			LocalPort => $port,
@@ -139,9 +140,11 @@ sub startNetServer
 			if ( ! $nodes[$_] ) 
 			{
 				$node = $BBS_NODE = $_;
-				$nodes[$_]++;
+				$nodes[$node]++;
 			}
 		}
+
+print STDOUT "Node Status: \n" . Dumper( @nodes );
 
 		##
 		## Create our dosbox config
@@ -225,7 +228,9 @@ sub startNetServer
 			{
 				print $hostConnection $byte;
 			}
-			kill( "TERM" => $childPID );
+			$nodes[$BBS_NODE] = 0;
+print "Post-Disconnect Node Status: \n" . Dumper( @nodes );
+			kill( "TERM" => $kidpid );
 		}
 		else 
 		{
