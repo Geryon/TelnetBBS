@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.4 2010-12-10 23:28:09 nick Exp $
+##	$Id: telnetbbs.pl,v 1.5 2010-12-13 05:54:50 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -39,15 +39,16 @@ my $EOL     = "\015\012";
 ## 
 ## These will be moved in to a config file
 ##
-my $DISPLAY  = ":0.0";
-my $BBS_NAME = "Hell's Dominion BBS";
-my $BBS_NODE = 0;
-my $DBCONF   = "/tmp/dosbox-__NODE__.conf";
-my $BBS_CMD  = "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
-my $LOG      = "/var/log/bbs.log";
-my $MAX_NODE = 1;
-my $DOSBOXT  = "dosbox.conf.template";
-my $BASE_PORT = 5000;
+my $DISPLAY   = ":0.0";
+my $BBS_NAME  = "Hell's Dominion BBS";
+my $BBS_NODE  = 0;
+my $DBCONF    = "/tmp/dosbox-__NODE__.conf";
+my $BBS_CMD   = "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
+my $LOG       = "/var/log/bbs.log";
+my $MAX_NODE  = 1;
+my $DOSBOXT   = "dosbox.conf.template";
+my $BASE_PORT = 7000;
+my $LOCK_PATH = "/tmp";
 
 ##
 ## Check that we are 'root' 
@@ -98,7 +99,7 @@ while( 1 ) { sleep 1; }
 ###############################################################################
 ###############################################################################
 
-sub logmsg { print "$0 $$ ", scalar localtime, ":@_\n" }
+sub logmsg { print STDOUT "$0 $$ ", scalar localtime, ":@_\n" }
 
 ###############################################################################
 ## startNetServer( );
@@ -134,17 +135,21 @@ sub startNetServer
 		## Find the next available node
 		##
 		my $node = 0;
+		my $lock_file = "";
 		foreach (1 .. $MAX_NODE)
 		{
-			next if ( $node );
-			if ( ! $nodes[$_] ) 
-			{
-				$node = $BBS_NODE = $_;
-				$nodes[$node]++;
-			}
-		}
+print "Searching for lock: " . $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock\n";
+			next if ( -f $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock" );
 
-print STDOUT "Node Status: \n" . Dumper( @nodes );
+			##
+			## Create node lock file
+			##
+			$lock_file = $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock";
+			open LOCK, ">$lock_file";
+			close( LOCK );
+			$node = $BBS_NODE = $_;
+		}
+print "Using lock: " . $LOCK_PATH."/".$BBS_NAME."_node".$node.".lock\n";
 
 		##
 		## Create our dosbox config
@@ -175,21 +180,23 @@ print STDOUT "Node Status: \n" . Dumper( @nodes );
 		}
 		defined( $childPID ) || die( "Cannot fork: $!\n" );
 
+		select $hostConnection;
+
 		##
 		## Default file descriptor to the client and turn on autoflush
 		##
 		$hostConnection->autoflush( 1 );
 
-		print $hostConnection "Welcome to $BBS_NAME!" . $EOL;
+		print "Welcome to $BBS_NAME!" . $EOL;
 
 		##
-		if ( ! $BBS_NODE ) 
+		if ( ! $lock_file ) 
 		{
-			print $hostConnection "No available nodes.  Try again later.".$EOL;
+			print "No available nodes.  Try again later.".$EOL;
 			exit;
 		}
 
-		print $hostConnection "Starting BBS on node $BBS_NODE...$EOL";
+		print "Starting BBS on node $BBS_NODE...$EOL";
 
 		##
 		## Launch BBS via dosbox
@@ -197,8 +204,15 @@ print STDOUT "Node Status: \n" . Dumper( @nodes );
 		my $bbsPID = fork( );
 		if ( $bbsPID ) 
 		{
+			select STDOUT;
 			my $cmd = $BBS_CMD . $DBCONF;
-			exec( $cmd );
+			system( $cmd );
+			print "Shutting down node $BBS_NODE\n";
+			##
+			## Remove Lock
+			##	
+			unlink( $lock_file );
+			unlink( $DBCONF );
 			exit;
 		}
 
@@ -229,7 +243,6 @@ print STDOUT "Node Status: \n" . Dumper( @nodes );
 				print $hostConnection $byte;
 			}
 			$nodes[$BBS_NODE] = 0;
-print "Post-Disconnect Node Status: \n" . Dumper( @nodes );
 			kill( "TERM" => $kidpid );
 		}
 		else 
@@ -261,6 +274,8 @@ print "Post-Disconnect Node Status: \n" . Dumper( @nodes );
 sub shutdown 
 {
 	my $signame = shift || 0;
+
+	select STDOUT;
 
 	&logmsg( "$0: Shutdown (SIG$signame) received.\n" )
 		if( $signame );
