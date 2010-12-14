@@ -6,15 +6,14 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.5 2010-12-13 05:54:50 nick Exp $
+##	$Id: telnetbbs.pl,v 1.6 2010-12-14 20:32:49 nick Exp $
 ##
 ################################################################################
 BEGIN {
         delete @ENV{qw(IFS CDPATH ENV BASH_ENV PATH)};
         $ENV{PATH} = "/bin:/usr/bin";
         $|++;
-# Flip this back on for more detailed error reporting
-#        $SIG{__DIE__} = sub { require Carp; Carp::confess(@_); }
+        $SIG{__DIE__} = sub { require Carp; Carp::confess(@_); }
       }
 
 use strict;
@@ -30,31 +29,34 @@ use threads;
 use threads::shared;
 
 ##
-## Fetch our command line options
+## Fetch our command line and configuration options
 ##
 my %opts    = &fetchOptions( );
-my $pidFile = "/var/run/telnetbbs.pid";
+my %cfg     = &fetchConfig( );
 my $EOL     = "\015\012";
 
 ## 
 ## These will be moved in to a config file
 ##
-my $DISPLAY   = ":0.0";
-my $BBS_NAME  = "Hell's Dominion BBS";
 my $BBS_NODE  = 0;
-my $DBCONF    = "/tmp/dosbox-__NODE__.conf";
-my $BBS_CMD   = "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
-my $LOG       = "/var/log/bbs.log";
-my $MAX_NODE  = 1;
-my $DOSBOXT   = "dosbox.conf.template";
-my $BASE_PORT = 7000;
-my $LOCK_PATH = "/tmp";
+my $pidFile   = $cfg{'pidfile'}    || "/tmp/telnetbbs.pid";
+my $port      = $opts{'port'}      || $cfg{'port'} || 23;
+my $DISPLAY   = $cfg{'display'}    || ":0.0";
+my $BBS_NAME  = $cfg{'bbs_name'}   || "Hell's Dominion BBS";
+my $DBCONF    = $cfg{'dosbox_cfg'} || "/tmp/dosbox-__NODE__.conf";
+my $BBS_CMD   = $cfg{'bbs_cmd'}    || "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
+my $LOGGING   = $cfg{'logging'}    || 0;
+my $LOG       = $cfg{'log_path'}   || "/tmp/bbs.log";
+my $MAX_NODE  = $cfg{'nodes'}      || 1;
+my $DOSBOXT   = $cfg{'dosboxt'}    || "dosbox.conf.template";
+my $BASE_PORT = $cfg{'base_port'}  || 7000;
+my $LOCK_PATH = $cfg{'lock_path'}  || "/tmp";
 
 ##
 ## Check that we are 'root' 
 ##
 die( "Must be root user to run this.\n" )
-	if ( getpwuid( $> ) ne "root" );
+	if ( getpwuid( $> ) ne "root" && $port < 1023 );
 
 ##
 ## Check for a PID
@@ -75,8 +77,14 @@ local $SIG{HUP}  = $SIG{INT} = $SIG{TERM} = \&shutdown;
 ##
 ## Open the Log
 ##
-#open LOG, ">>$LOG";
+open LOG, ">>$LOG" if ( $LOGGING );
 &logmsg( "Starting telnetbbs server" );
+
+##
+## Display running information
+##
+&display_config_and_options( \%opts, "Options" );
+&display_config_and_options( \%cfg, "Configuration" );
 
 ##
 ## Start the network server
@@ -99,7 +107,27 @@ while( 1 ) { sleep 1; }
 ###############################################################################
 ###############################################################################
 
-sub logmsg { print STDOUT "$0 $$ ", scalar localtime, ":@_\n" }
+sub logmsg 
+{ 
+	my $message = "$0 $$ " . scalar( localtime( ) ) . ":@_\n";
+	print STDOUT $message;
+	print LOG $message if ( $LOGGING );
+}
+
+
+###############################################################################
+###############################################################################
+sub display_config_and_options
+{
+	my $hr    = shift || 0;
+	my $name  = shift || "Unknown";
+	my $title = "Displaying $name\n";
+
+	return $hr if ( ! $hr );
+
+	print LOG $title . Dumper( $hr ) if ( $LOGGING );
+	print STDOUT $title . Dumper( $hr ) if ( $opts{'verbose'});
+}
 
 ###############################################################################
 ## startNetServer( );
@@ -112,7 +140,6 @@ sub startNetServer
 {
 	my $hostConnection;
 	my $childPID;
-	my $port  = $opts{'port'} || 23;
 	my @nodes = ( );
 
 	my $server = IO::Socket::INET->new( 
@@ -283,7 +310,7 @@ sub shutdown
 	##
 	## Close Log
 	##
-	close( LOG );
+	close( LOG ) if ( $LOGGING );
 
 	##	
 	## Remove the PID
@@ -399,6 +426,48 @@ sub processExists
 	return 0;
 }
 
+###############################################################################
+###############################################################################
+sub fetchConfig 
+{
+	my %conf = ( );
+	my $cf   = &findConfig;
+
+	if ( $cf ) 
+	{
+		open( CONF, "<$cf" ) or die ( "Error opening $cf: $!\n" );
+			while( <CONF> ) 
+			{
+				next if ( $_ =~ m/^#/ );
+				if ( $_ =~ m/(.*?)=(.*)/ )
+				{
+					my $k = $1; my $v = $2;
+					$k =~ s/\s+//;
+					$v =~ s/\s+//;
+					$conf{$k} = $v;
+				}
+			}
+		close( CONF );
+	}
+
+	return %conf;
+}
+
+###############################################################################
+###############################################################################
+sub findConfig
+{
+	my $cf    = 0;
+	my @paths = qw| ./ ./.telnetbbs /etc /usr/local/etc |;
+
+	foreach ( @paths ) 
+	{
+		my $fn = $_ . "/telnetbbs.conf";
+		return $fn if ( -f $fn );
+	}
+
+	return $cf;
+}
 
 ###############################################################################
 ##
@@ -414,6 +483,7 @@ sub fetchOptions {
                         "help|?"        => \$opts{'help'},
                         "man"           => \$opts{'man'},
 			"port:i"	=> \$opts{'port'},
+			"verbose"	=> \$opts{'verbose'},
                    ) || &pod2usage( );
         &pod2usage( ) if defined $opts{'help'};
         &pod2usage( { -verbose => 2, -input => \*DATA } ) if defined $opts{'man'};
