@@ -6,14 +6,14 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.6 2010-12-14 20:32:49 nick Exp $
+##	$Id: telnetbbs.pl,v 1.7 2010-12-16 14:24:25 nick Exp $
 ##
 ################################################################################
 BEGIN {
         delete @ENV{qw(IFS CDPATH ENV BASH_ENV PATH)};
         $ENV{PATH} = "/bin:/usr/bin";
         $|++;
-        $SIG{__DIE__} = sub { require Carp; Carp::confess(@_); }
+#        $SIG{__DIE__} = sub { require Carp; Carp::confess(@_); }
       }
 
 use strict;
@@ -36,7 +36,7 @@ my %cfg     = &fetchConfig( );
 my $EOL     = "\015\012";
 
 ## 
-## These will be moved in to a config file
+## These are read in from the config file
 ##
 my $BBS_NODE  = 0;
 my $pidFile   = $cfg{'pidfile'}    || "/tmp/telnetbbs.pid";
@@ -165,7 +165,6 @@ sub startNetServer
 		my $lock_file = "";
 		foreach (1 .. $MAX_NODE)
 		{
-print "Searching for lock: " . $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock\n";
 			next if ( -f $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock" );
 
 			##
@@ -176,7 +175,6 @@ print "Searching for lock: " . $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock\n";
 			close( LOCK );
 			$node = $BBS_NODE = $_;
 		}
-print "Using lock: " . $LOCK_PATH."/".$BBS_NAME."_node".$node.".lock\n";
 
 		##
 		## Create our dosbox config
@@ -316,6 +314,15 @@ sub shutdown
 	## Remove the PID
 	##
 	unlink( $pidFile );
+
+	##
+	## Remove node lock files
+	##
+	foreach (1 .. $MAX_NODE)
+	{
+		my $node_lock = $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock";
+		unlink( $node_lock ) if ( -f $node_lock );
+	}
 
 	##
 	## Wait for the thread to shutdown
@@ -460,6 +467,8 @@ sub findConfig
 	my $cf    = 0;
 	my @paths = qw| ./ ./.telnetbbs /etc /usr/local/etc |;
 
+	return $opts{'config'} if defined $opts{'config'};
+
 	foreach ( @paths ) 
 	{
 		my $fn = $_ . "/telnetbbs.conf";
@@ -480,6 +489,7 @@ sub fetchOptions {
         my %opts;
 
         &GetOptions(
+			"config:s"	=> \$opts{'config'},
                         "help|?"        => \$opts{'help'},
                         "man"           => \$opts{'man'},
 			"port:i"	=> \$opts{'port'},
@@ -502,9 +512,11 @@ telnetbbs.pl - A telnet server designed to launch a multi-node BBS.
 telnetbbs.pl [options]
 
  Options:
+	--config,c	Specify the configuration file to use
         --help,?        Display the basic help menu
         --man,m         Display the detailed man page
 	--port,p	Port to listen on, default 23.
+	--verbose,v	Enable verbose output
 
 =head1 DESCRIPTION
 
