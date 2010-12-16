@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.7 2010-12-16 14:24:25 nick Exp $
+##	$Id: telnetbbs.pl,v 1.8 2010-12-16 21:38:46 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -105,8 +105,16 @@ while( 1 ) { sleep 1; }
 ## Sub-routines begin here
 ##
 ###############################################################################
-###############################################################################
 
+
+###############################################################################
+##
+## &logmsg( "string" );
+##
+##  This takes a string and prepends the process name, ID and timestamp
+##  to the message.  It then displays it to STDOUT and logs it if enabled.
+##
+###############################################################################
 sub logmsg 
 { 
 	my $message = "$0 $$ " . scalar( localtime( ) ) . ":@_\n";
@@ -116,6 +124,15 @@ sub logmsg
 
 
 ###############################################################################
+##
+## &display_config_and_options( %hash );
+##
+##  This will display via Data::Dumper a hash that is passed to it.
+##  If verbose is enabled it will got to STDOUT and if logging is enabled
+##  it will be logged.
+##
+##  This is called only once during startup.
+##
 ###############################################################################
 sub display_config_and_options
 {
