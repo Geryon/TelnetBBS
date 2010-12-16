@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.8 2010-12-16 21:38:46 nick Exp $
+##	$Id: telnetbbs.pl,v 1.9 2010-12-16 21:53:41 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -182,12 +182,13 @@ sub startNetServer
 		my $lock_file = "";
 		foreach (1 .. $MAX_NODE)
 		{
-			next if ( -f $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock" );
+			$lock_file = $LOCK_PATH . "/" . $BBS_NAME . 
+				     "_node" . $_ . ".lock";
+			next if ( -f $lock_file );
 
 			##
 			## Create node lock file
 			##
-			$lock_file = $LOCK_PATH."/".$BBS_NAME."_node".$_.".lock";
 			open LOCK, ">$lock_file";
 			close( LOCK );
 			$node = $BBS_NODE = $_;
@@ -451,6 +452,13 @@ sub processExists
 }
 
 ###############################################################################
+##
+## %config_hash = &fetchConfig( );
+##
+##  This reads in a file in the format of "key = value" and stores them
+## in to a hash of $hash{$key} = $value.  Lines starting with '#' are 
+## considered comments and ignored.
+##
 ###############################################################################
 sub fetchConfig 
 {
@@ -478,6 +486,13 @@ sub fetchConfig
 }
 
 ###############################################################################
+##
+## my $file = &fetchConfig( );
+##
+##  This function will look for 'telnetbbs.conf' or whatever was specified
+##  on the command line.  It will search the @paths below for the default
+##  filename if none is specifed.
+##
 ###############################################################################
 sub findConfig
 {
