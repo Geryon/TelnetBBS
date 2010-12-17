@@ -1,3 +1,9 @@
+##
+## This is the dosbox configuration used by the telnetBBS service.
+## Please refer to the README.txt for any telnetBBS dosbox related
+## configuration and set up.
+##
+
 # This is the configurationfile for DOSBox 0.72.
 # Lines starting with a # are commentlines.
 # They are used to (briefly) document the effect of each option.
@@ -49,7 +55,7 @@ memsize=4
 #           If forced is appended (like scaler=hq2x forced), the scaler will be used
 #           even if the result might not be desired.
 
-frameskip=0
+frameskip=100
 aspect=false
 scaler=none
 
@@ -173,6 +179,10 @@ buttonwrap=true
 #                             transparent, port, inhsocket (all optional).
 #              Example: serial1=modem listenport:5000
 
+##
+## For details regarding this configuration with telnetBBS server please
+## view the README.txt for more details.
+##
 serial1=modem listenport:__LISTEN_PORT__
 serial2=dummy
 serial3=disabled
@@ -194,14 +204,15 @@ keyboardlayout=none
 
 ipx=false
 
+##
+## Please view the README.txt to configuration this properly
+## for your BBS.
+##
 [autoexec]
 # Lines in this section will be run at startup.
 mount c: /home/nick/hdbbs
 c:
 PATH=c:\;c:\util
-#cd bnu
-#bnu
-#cd ..\bbs
 cd c:\foss
 fci
 cd c:\bbs

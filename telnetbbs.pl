@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.9 2010-12-16 21:53:41 nick Exp $
+##	$Id: telnetbbs.pl,v 1.10 2010-12-17 20:15:24 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -44,13 +44,14 @@ my $port      = $opts{'port'}      || $cfg{'port'} || 23;
 my $DISPLAY   = $cfg{'display'}    || ":0.0";
 my $BBS_NAME  = $cfg{'bbs_name'}   || "Hell's Dominion BBS";
 my $DBCONF    = $cfg{'dosbox_cfg'} || "/tmp/dosbox-__NODE__.conf";
-my $BBS_CMD   = $cfg{'bbs_cmd'}    || "DISPLAY=$DISPLAY /usr/bin/dosbox -conf ";
+my $BBS_CMD   = $cfg{'bbs_cmd'}    || "DISPLAY=__DISPLAY__ /usr/bin/dosbox -conf ";
 my $LOGGING   = $cfg{'logging'}    || 0;
 my $LOG       = $cfg{'log_path'}   || "/tmp/bbs.log";
 my $MAX_NODE  = $cfg{'nodes'}      || 1;
 my $DOSBOXT   = $cfg{'dosboxt'}    || "dosbox.conf.template";
 my $BASE_PORT = $cfg{'base_port'}  || 7000;
 my $LOCK_PATH = $cfg{'lock_path'}  || "/tmp";
+   $BBS_CMD   =~ s/__DISPLAY__/$DISPLAY/g;
 
 ##
 ## Check that we are 'root' 
@@ -180,10 +181,13 @@ sub startNetServer
 		##
 		my $node = 0;
 		my $lock_file = "";
-		foreach (1 .. $MAX_NODE)
+		my $cnt  = 0;
+		while ( ! $node && $cnt < $MAX_NODE )
 		{
+			$cnt++;
 			$lock_file = $LOCK_PATH . "/" . $BBS_NAME . 
-				     "_node" . $_ . ".lock";
+				     "_node" . $cnt . ".lock";
+print "Checking for node lock: $lock_file\n";
 			next if ( -f $lock_file );
 
 			##
@@ -191,7 +195,8 @@ sub startNetServer
 			##
 			open LOCK, ">$lock_file";
 			close( LOCK );
-			$node = $BBS_NODE = $_;
+			$BBS_NODE = $node = $cnt;
+print "Using node: $node\n";
 		}
 
 		##
@@ -233,7 +238,7 @@ sub startNetServer
 		print "Welcome to $BBS_NAME!" . $EOL;
 
 		##
-		if ( ! $lock_file ) 
+		if ( ! $node ) 
 		{
 			print "No available nodes.  Try again later.".$EOL;
 			exit;
@@ -251,11 +256,15 @@ sub startNetServer
 			my $cmd = $BBS_CMD . $DBCONF;
 			system( $cmd );
 			print "Shutting down node $BBS_NODE\n";
+
 			##
 			## Remove Lock
 			##	
 			unlink( $lock_file );
 			unlink( $DBCONF );
+			close( $hostConnection );
+			close( $server );
+			kill( "TERM" => $bbsPID );
 			exit;
 		}
 
@@ -300,9 +309,9 @@ sub startNetServer
 		unlink( $DBCONF );
 	}
 	close( $hostConnection );
-	exit;
+	close( $server );
 
-#	close( $server );
+	exit;
 }
 
 ###############################################################################
