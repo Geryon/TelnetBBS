@@ -1,4 +1,4 @@
-------------------------
+--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 TelnetBBS Server
 telnetbbs.pl
 
@@ -7,8 +7,8 @@ nick@declario.com
 http://nick.declario.com
 
 December 2010
-$Id: README.txt,v 1.2 2010-12-17 20:15:23 nick Exp $
--------------------------
+$Id: README.txt,v 1.3 2010-12-20 20:51:39 nick Exp $
+--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 About
 -----
@@ -27,7 +27,7 @@ The quick and dirty way to get all this running is to install DOSBox, your favor
 
 For a basic set up, that I don't recommend keeping but it's a good starting point, make sure you are running X and edit the include DOSBox template file, 'dosbox.conf.template'.
 
-You will need to make changes to the autoexec section to load your fossil driver and start your BBS.  The '__NODE__' will be replaced the with the appropriate node when the BBS is started.  What you may need to do is configure your BBS to answer the (virtual) modem on com1.  A number of BBS software are configured by default for this.  
+You will need to make changes to the autoexec section to load your fossil driver and start your BBS.  The '__NODE__' will be replaced the with the appropriate node when the BBS is started.  What you may need to do is configure your BBS to answer the (virtual) modem on com1.  A number of BBS software are configured by default for this.  I give an example in the config file for Renegade BBS.  
 
 At this point start the server, './telnetbbs.pl'.  The server will start up and tell you what port it's running on, 3023 is the default.  
 
@@ -37,4 +37,7 @@ There are many more options and configurations that can be made, please read the
 
 Install
 -------
+Detailed install coming soon. 
 
+
+Please report any bugs either via e-mail or my blog at nick.declario.com.

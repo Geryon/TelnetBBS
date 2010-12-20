@@ -210,7 +210,7 @@ ipx=false
 ##
 [autoexec]
 # Lines in this section will be run at startup.
-mount c: /home/nick/hdbbs
+mount c: /home/bbs
 c:
 PATH=c:\;c:\util
 cd c:\foss

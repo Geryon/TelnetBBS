@@ -6,7 +6,7 @@
 ##
 ##   Nicholas DeClario <nick@declario.com>
 ##   October 2009
-##	$Id: telnetbbs.pl,v 1.10 2010-12-17 20:15:24 nick Exp $
+##	$Id: telnetbbs.pl,v 1.11 2010-12-20 20:51:39 nick Exp $
 ##
 ################################################################################
 BEGIN {
@@ -206,7 +206,7 @@ print "Using node: $node\n";
 			my @dbt = <DBT>;
 		close( DBT );
 		
-		my $bpn = $BASE_PORT + $BBS_NODE;
+		my $bpn = $BASE_PORT + $BBS_NODE - 1;
 		$DBCONF =~ s/__NODE__/$BBS_NODE/g;
 		open( DBC, ">$DBCONF" );
 		foreach( @dbt ) 
